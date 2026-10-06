@@ -1,13 +1,15 @@
 package com.example.modoguardian.model
 
-data class Usuario(
-    val usuario: String,
-    val nombre: String,
-    val rol: Rol
-)
-
 enum class Rol {
     ADMINISTRADOR,
     SUPERVISOR,
     OPERADOR
 }
+
+data class Usuario(
+    val id: Int,
+    val nombre: String,
+    val correo: String,
+    val clave: String,
+    val rol: Rol
+)

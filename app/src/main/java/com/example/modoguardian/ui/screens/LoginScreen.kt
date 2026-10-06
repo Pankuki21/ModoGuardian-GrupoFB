@@ -1,80 +1,76 @@
 package com.example.modoguardian.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.modoguardian.viewmodel.LoginViewModel
 
 @Composable
 fun LoginScreen(
-    viewModel: LoginViewModel = viewModel()
+    onLoginClick: (String, String) -> Unit,
+    errorMessage: String? = null
 ) {
-    val usuario by viewModel.usuario.collectAsStateWithLifecycle()
-    val clave by viewModel.clave.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
+    var correo by remember { mutableStateOf("") }
+    var clave by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "Modo Guardián",
             style = MaterialTheme.typography.headlineMedium
         )
-
         Text(
             text = "Inicio de sesión",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 24.dp)
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 32.dp)
         )
 
         OutlinedTextField(
-            value = usuario,
-            onValueChange = viewModel::cambiarUsuario,
-            label = { Text("Usuario") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            value = correo,
+            onValueChange = { correo = it },
+            label = { Text("Correo electrónico") },
+            placeholder = { Text("ejemplo@modoguardian.com") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth()
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
             value = clave,
-            onValueChange = viewModel::cambiarClave,
+            onValueChange = { clave = it },
             label = { Text("Clave") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp),
+            singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            singleLine = true
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            modifier = Modifier.fillMaxWidth()
         )
 
-        error?.let {
+        if (!errorMessage.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = it,
+                text = errorMessage,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
+                style = MaterialTheme.typography.bodySmall
             )
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
         Button(
-            onClick = { viewModel.iniciarSesion() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 24.dp)
+            onClick = { onLoginClick(correo, clave) },
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text("Iniciar sesión")
         }
