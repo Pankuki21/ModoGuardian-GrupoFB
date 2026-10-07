@@ -1,4 +1,4 @@
-package com.example.modoguardian.ui.navegation
+package com.example.modoguardian.navigation
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Home : Screen("home")
