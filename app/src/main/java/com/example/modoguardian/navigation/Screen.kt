@@ -1,6 +1,7 @@
 package com.example.modoguardian.navigation
 sealed class Screen(val route: String) {
     object Login : Screen("login")
+    object Register : Screen("register")
     object Home : Screen("home")
     object Events : Screen("events")
     object EventDetail : Screen("event_detail/{eventId}") {

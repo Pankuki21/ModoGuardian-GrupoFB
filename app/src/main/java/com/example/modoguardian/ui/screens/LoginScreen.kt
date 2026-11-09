@@ -2,6 +2,7 @@ package com.example.modoguardian.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,227 +11,166 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import com.example.modoguardian.R
+import com.example.modoguardian.ui.theme.AzulInsertCode
 import com.example.modoguardian.viewmodel.LoginViewModel
 
 @Composable
 fun LoginScreen(
     loginViewModel: LoginViewModel,
     widthSizeClass: WindowWidthSizeClass,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onCrearCuenta: () -> Unit
 ) {
     val uiState by loginViewModel.uiState.collectAsState()
     val errores by loginViewModel.errores.collectAsState()
-
-    val isLoginEnabled =
-        uiState.email.isNotBlank() &&
-                uiState.password.isNotBlank() &&
-                !uiState.isLoading
-
-    Scaffold(
-        modifier = Modifier.fillMaxSize()
-    ) { paddingValues ->
-
-        when (widthSizeClass) {
-
-            // Diseño para celulares.
-            WindowWidthSizeClass.Compact -> {
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    LoginForm(
-                        uiState = uiState,
-                        errores = errores,
-                        isLoginEnabled = isLoginEnabled,
-                        loginViewModel = loginViewModel,
-                        onLoginSuccess = onLoginSuccess,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            // Diseño para pantallas medianas.
-            WindowWidthSizeClass.Medium -> {
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(32.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(0.70f)
-                    ) {
-                        LoginForm(
-                            uiState = uiState,
-                            errores = errores,
-                            isLoginEnabled = isLoginEnabled,
-                            loginViewModel = loginViewModel,
-                            onLoginSuccess = onLoginSuccess,
-                            modifier = Modifier.padding(24.dp)
-                        )
-                    }
-                }
-            }
-
-            // Diseño para pantallas grandes.
-            WindowWidthSizeClass.Expanded -> {
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(0.45f)
-                    ) {
-                        LoginForm(
-                            uiState = uiState,
-                            errores = errores,
-                            isLoginEnabled = isLoginEnabled,
-                            loginViewModel = loginViewModel,
-                            onLoginSuccess = onLoginSuccess,
-                            modifier = Modifier.padding(32.dp)
-                        )
-                    }
-                }
-            }
-        }
+    val anchoMaximo = when (widthSizeClass) {
+        WindowWidthSizeClass.Compact -> 520.dp
+        WindowWidthSizeClass.Medium -> 600.dp
+        else -> 640.dp
     }
-}
 
-@Composable
-private fun LoginForm(
-    uiState: com.example.modoguardian.model.LoginUiState,
-    errores: com.example.modoguardian.model.LoginErrores,
-    isLoginEnabled: Boolean,
-    loginViewModel: LoginViewModel,
-    onLoginSuccess: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-        // Logo de la aplicación.
-        Image(
-            painter = painterResource(id = R.drawable.logo_guardian),
-            contentDescription = "Logo de Modo Guardián",
-            modifier = Modifier.size(100.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Modo Guardián",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Iniciar sesión",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Campo de correo.
-        OutlinedTextField(
-            value = uiState.email,
-            onValueChange = loginViewModel::onEmailChange,
-            label = { Text("Correo electrónico") },
-            singleLine = true,
-            isError = errores.email != null,
-            supportingText = {
-                errores.email?.let {
-                    Text(it)
-                }
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Campo de contraseña.
-        OutlinedTextField(
-            value = uiState.password,
-            onValueChange = loginViewModel::onPasswordChange,
-            label = { Text("Contraseña") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            isError = errores.password != null,
-            supportingText = {
-                errores.password?.let {
-                    Text(it)
-                }
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        errores.general?.let {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Botón de inicio de sesión.
-        Button(
-            onClick = {
-                if (loginViewModel.iniciarSesion()) {
-                    onLoginSuccess()
-                }
-            },
-            enabled = isLoginEnabled
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { insets ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.Center
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+            Column(
+                modifier = Modifier.fillMaxWidth().widthIn(max = anchoMaximo).padding(horizontal = 28.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.logo_guardian),
+                    contentDescription = "Logo de Modo Guardián",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.width(190.dp).height(104.dp)
                 )
-            } else {
-                Text("Ingresar")
+                Text("INSERCODE · SEGURIDAD INTEGRAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.5.sp)
+                Text("MODO LOCAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Spacer(Modifier.height(28.dp))
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(28.dp)) {
+                    Row(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        IconoUi(IconosUi.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Text("Acceso seguro", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Text("●", color = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+
+                Spacer(Modifier.height(34.dp))
+                Text("Bienvenido\nde vuelta", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, lineHeight = 38.sp)
+                Spacer(Modifier.height(10.dp))
+                Text("Ingresa a tu turno de monitoreo", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(30.dp))
+
+                OutlinedTextField(
+                    value = uiState.email,
+                    onValueChange = loginViewModel::onEmailChange,
+                    label = { Text("Correo electrónico") },
+                    singleLine = true,
+                    isError = errores.email != null,
+                    supportingText = { errores.email?.let { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(14.dp))
+                var mostrarClave by remember { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = uiState.password,
+                    onValueChange = loginViewModel::onPasswordChange,
+                    label = { Text("Contraseña") },
+                    singleLine = true,
+                    isError = errores.password != null,
+                    supportingText = { errores.password?.let { Text(it) } },
+                    visualTransformation = if (mostrarClave) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { mostrarClave = !mostrarClave }) {
+                            IconoUi(if (mostrarClave) IconosUi.VisibilityOff else IconosUi.Visibility, contentDescription = if (mostrarClave) "Ocultar contraseña" else "Mostrar contraseña")
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                errores.general?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = { if (loginViewModel.iniciarSesion()) onLoginSuccess() },
+                    enabled = uiState.email.isNotBlank() && uiState.password.isNotBlank() && !uiState.isLoading,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AzulInsertCode),
+                    modifier = Modifier.fillMaxWidth().height(58.dp)
+                ) {
+                    if (uiState.isLoading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else Text("Ingresar al sistema     →", fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("Tus permisos se cargarán según tu perfil", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(24.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.material3.HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+                    Text("  O CONTINUAR CON  ", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    androidx.compose.material3.HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("G   Google") }
+                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("●   Apple") }
+                }
+                Spacer(Modifier.height(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    Text("¿No tienes cuenta? ", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = onCrearCuenta) { Text("Crear cuenta", fontWeight = FontWeight.Bold) }
+                }
+                Spacer(Modifier.height(8.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        IconoUi(IconosUi.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                        Text("Modo de demostración local · InsertCode", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
         }
     }

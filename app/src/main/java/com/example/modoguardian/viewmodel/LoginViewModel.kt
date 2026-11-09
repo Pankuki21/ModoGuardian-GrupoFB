@@ -1,16 +1,18 @@
 package com.example.modoguardian.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import com.example.modoguardian.model.LoginErrores
 import com.example.modoguardian.model.LoginUiState
+import com.example.modoguardian.model.Usuario
 import com.example.modoguardian.repository.UsuarioRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = UsuarioRepository()
+    private val repository = UsuarioRepository(application)
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -106,5 +108,13 @@ class LoginViewModel : ViewModel() {
     }
     fun cerrarSesion() {
         _usuarioActual.value = null
+        _uiState.value = LoginUiState()
+        _errores.value = LoginErrores()
+    }
+
+    fun iniciarSesionConUsuario(usuario: Usuario) {
+        _usuarioActual.value = usuario
+        _uiState.value = LoginUiState()
+        _errores.value = LoginErrores()
     }
 }

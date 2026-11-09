@@ -5,22 +5,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.modoguardian.model.Rol
-import com.example.modoguardian.navigation.MainViewModel
-import com.example.modoguardian.navigation.NavigationEvent
-import com.example.modoguardian.ui.screens.AdminScreen
 import com.example.modoguardian.ui.screens.LoginScreen
-import com.example.modoguardian.ui.screens.OperadorScreen
-import com.example.modoguardian.ui.screens.SupervisorScreen
+import com.example.modoguardian.ui.screens.PanelPrincipalScreen
+import com.example.modoguardian.ui.screens.RegistroScreen
 import com.example.modoguardian.ui.theme.ModoGuardianTheme
 import com.example.modoguardian.viewmodel.LoginViewModel
+import com.example.modoguardian.viewmodel.RegistroViewModel
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 class MainActivity : ComponentActivity() {
@@ -34,33 +34,13 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             val loginViewModel: LoginViewModel = viewModel()
-            val mainViewModel: MainViewModel = viewModel()
+            val registroViewModel: RegistroViewModel = viewModel()
+            var modoOscuro by rememberSaveable { mutableStateOf(true) }
 
             // Observamos el usuario actual sin acceder directamente a StateFlow.value.
             val usuarioActual by loginViewModel.usuarioActual.collectAsState()
 
-            /*
-             * Escucha los eventos de navegación enviados
-             * por MainViewModel.
-             */
-            LaunchedEffect(Unit) {
-
-                mainViewModel.navigationEvent.collect { event ->
-
-                    when (event) {
-
-                        is NavigationEvent.NavigateTo -> {
-                            navController.navigate(event.route)
-                        }
-
-                        NavigationEvent.NavigateBack -> {
-                            navController.popBackStack()
-                        }
-                    }
-                }
-            }
-
-            ModoGuardianTheme {
+            ModoGuardianTheme(modoOscuro = modoOscuro) {
 
                 NavHost(
                     navController = navController,
@@ -83,9 +63,28 @@ class MainActivity : ComponentActivity() {
                                         Rol.OPERADOR -> "operador"
                                     }
 
-                                    mainViewModel.navigateTo(ruta)
+                                    navController.navigate(ruta)
                                 }
-                            }
+                            },
+                            onCrearCuenta = { navController.navigate("register") }
+                        )
+                    }
+
+                    composable("register") {
+                        RegistroScreen(
+                            registroViewModel = registroViewModel,
+                            onRegistroExitoso = {
+                                registroViewModel.uiState.value.registrado?.let { usuario ->
+                                    loginViewModel.iniciarSesionConUsuario(usuario)
+                                    val ruta = when (usuario.rol) {
+                                        Rol.ADMINISTRADOR -> "admin"
+                                        Rol.SUPERVISOR -> "supervisor"
+                                        Rol.OPERADOR -> "operador"
+                                    }
+                                    navController.navigate(ruta) { popUpTo("login") { inclusive = true } }
+                                }
+                            },
+                            onIniciarSesion = { navController.popBackStack() }
                         )
                     }
 
@@ -94,18 +93,10 @@ class MainActivity : ComponentActivity() {
 
                         usuarioActual?.let { usuario ->
 
-                            AdminScreen(
-                                usuarioActual = usuario,
-                                onCerrarSesion = {
-                                    loginViewModel.cerrarSesion()
-
-                                    navController.navigate("login") {
-                                        popUpTo(0) {
-                                            inclusive = true
-                                        }
-                                    }
-                                }
-                            )
+                            PanelPrincipalScreen(usuario, modoOscuro, { modoOscuro = it }) {
+                                loginViewModel.cerrarSesion()
+                                navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                            }
                         }
                     }
 
@@ -114,18 +105,10 @@ class MainActivity : ComponentActivity() {
 
                         usuarioActual?.let { usuario ->
 
-                            SupervisorScreen(
-                                usuarioActual = usuario,
-                                onCerrarSesion = {
-                                    loginViewModel.cerrarSesion()
-
-                                    navController.navigate("login") {
-                                        popUpTo(0) {
-                                            inclusive = true
-                                        }
-                                    }
-                                }
-                            )
+                            PanelPrincipalScreen(usuario, modoOscuro, { modoOscuro = it }) {
+                                loginViewModel.cerrarSesion()
+                                navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                            }
                         }
                     }
 
@@ -134,18 +117,10 @@ class MainActivity : ComponentActivity() {
 
                         usuarioActual?.let { usuario ->
 
-                            OperadorScreen(
-                                usuarioActual = usuario,
-                                onCerrarSesion = {
-                                    loginViewModel.cerrarSesion()
-
-                                    navController.navigate("login") {
-                                        popUpTo(0) {
-                                            inclusive = true
-                                        }
-                                    }
-                                }
-                            )
+                            PanelPrincipalScreen(usuario, modoOscuro, { modoOscuro = it }) {
+                                loginViewModel.cerrarSesion()
+                                navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                            }
                         }
                     }
                 }
