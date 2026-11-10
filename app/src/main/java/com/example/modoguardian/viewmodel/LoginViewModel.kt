@@ -4,15 +4,19 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.example.modoguardian.model.LoginErrores
 import com.example.modoguardian.model.LoginUiState
+import com.example.modoguardian.model.Rol
 import com.example.modoguardian.model.Usuario
-import com.example.modoguardian.repository.UsuarioRepository
+import com.example.modoguardian.repository.FirebaseAuthRepository
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = UsuarioRepository(application)
+    private val firebaseRepository = FirebaseAuthRepository()
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -20,11 +24,15 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     private val _errores = MutableStateFlow(LoginErrores())
     val errores: StateFlow<LoginErrores> = _errores.asStateFlow()
 
-    private val _usuarioActual = MutableStateFlow(
-        null as com.example.modoguardian.model.Usuario?
-    )
-    val usuarioActual: StateFlow<com.example.modoguardian.model.Usuario?> =
-        _usuarioActual.asStateFlow()
+    private val _usuarioActual = MutableStateFlow<Usuario?>(null)
+    val usuarioActual: StateFlow<Usuario?> = _usuarioActual.asStateFlow()
+
+    // Recuperar la sesión de Firebase al iniciar la aplicación.
+    init {
+        firebaseRepository.obtenerUsuarioActual()?.let { usuario ->
+            _usuarioActual.value = convertirUsuario(usuario)
+        }
+    }
 
     fun onEmailChange(email: String) {
         _uiState.value = _uiState.value.copy(email = email)
@@ -44,22 +52,22 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    // Validar los campos antes de consultar Firebase.
     fun validarFormulario(): Boolean {
-
         val email = _uiState.value.email.trim()
         val password = _uiState.value.password
 
-        var errorEmail: String? = null
-        var errorPassword: String? = null
-
-        if (email.isBlank()) {
-            errorEmail = "Ingresa tu correo electrónico"
-        } else if (!email.contains("@")) {
-            errorEmail = "Ingresa un correo válido"
+        val errorEmail = when {
+            email.isBlank() -> "Ingresa tu correo electrónico"
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() ->
+                "Ingresa un correo electrónico válido"
+            else -> null
         }
 
-        if (password.isBlank()) {
-            errorPassword = "Ingresa tu contraseña"
+        val errorPassword = if (password.isBlank()) {
+            "Ingresa tu contraseña"
+        } else {
+            null
         }
 
         _errores.value = LoginErrores(
@@ -70,48 +78,103 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         return errorEmail == null && errorPassword == null
     }
 
-    fun iniciarSesion(): Boolean {
+    // Iniciar sesión mediante Firebase Authentication.
+    fun iniciarSesion() {
 
-        if (!validarFormulario()) {
-            return false
+        if (_uiState.value.isLoading || !validarFormulario()) {
+            return
         }
 
-        _uiState.value = _uiState.value.copy(
-            isLoading = true
+        val email = _uiState.value.email.trim()
+        val password = _uiState.value.password
+
+        _uiState.value = _uiState.value.copy(isLoading = true)
+
+        firebaseRepository.iniciarSesion(email, password)
+            .addOnCompleteListener { tarea ->
+
+                _uiState.value = _uiState.value.copy(isLoading = false)
+
+                if (tarea.isSuccessful) {
+
+                    val firebaseUser = tarea.result?.user
+
+                    if (firebaseUser != null) {
+                        _usuarioActual.value = convertirUsuario(firebaseUser)
+                        _errores.value = LoginErrores()
+                    } else {
+                        _errores.value = _errores.value.copy(
+                            general = "No se pudo recuperar la información del usuario."
+                        )
+                    }
+
+                } else {
+
+                    _usuarioActual.value = null
+
+                    _errores.value = _errores.value.copy(
+                        general = obtenerMensajeError(tarea.exception)
+                    )
+                }
+            }
+    }
+
+    // Convertir el usuario de Firebase al modelo de Modo Guardián.
+    private fun convertirUsuario(firebaseUser: FirebaseUser): Usuario {
+
+        val correo = firebaseUser.email.orEmpty()
+
+        val nombre = firebaseUser.displayName
+            ?.takeIf { it.isNotBlank() }
+            ?: correo.substringBefore("@").ifBlank { "Usuario" }
+
+        return Usuario(
+            id = firebaseUser.uid.hashCode(),
+            nombre = nombre,
+            correo = correo,
+            rol = Rol.OPERADOR
         )
+    }
 
-        val usuario = repository.autenticar(
-            _uiState.value.email.trim(),
-            _uiState.value.password
-        )
+    // Traducir los errores de Firebase a mensajes comprensibles.
+    private fun obtenerMensajeError(error: Exception?): String {
 
-        _uiState.value = _uiState.value.copy(
-            isLoading = false
-        )
+        if (error is FirebaseNetworkException) {
+            return "No hay conexión a Internet. Comprueba tu conexión."
+        }
 
-        return if (usuario != null) {
+        val codigo = (error as? FirebaseAuthException)?.errorCode
 
-            _usuarioActual.value = usuario
+        return when (codigo) {
+            "ERROR_INVALID_EMAIL" ->
+                "El correo electrónico no es válido."
 
-            _errores.value = LoginErrores()
+            "ERROR_INVALID_CREDENTIAL",
+            "ERROR_WRONG_PASSWORD",
+            "ERROR_USER_NOT_FOUND" ->
+                "Correo o contraseña incorrectos."
 
-            true
+            "ERROR_USER_DISABLED" ->
+                "Esta cuenta se encuentra deshabilitada."
 
-        } else {
+            "ERROR_TOO_MANY_REQUESTS" ->
+                "Demasiados intentos. Inténtalo más tarde."
 
-            _errores.value = _errores.value.copy(
-                general = "Correo o contraseña incorrectos"
-            )
-
-            false
+            else ->
+                "No se pudo iniciar sesión. Inténtalo nuevamente."
         }
     }
+
     fun cerrarSesion() {
+        firebaseRepository.cerrarSesion()
+
         _usuarioActual.value = null
         _uiState.value = LoginUiState()
         _errores.value = LoginErrores()
     }
 
+    // Se conserva temporalmente para la antigua pantalla
+    // de registro local. La migraremos en la siguiente etapa.
     fun iniciarSesionConUsuario(usuario: Usuario) {
         _usuarioActual.value = usuario
         _uiState.value = LoginUiState()

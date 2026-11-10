@@ -50,6 +50,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import com.example.modoguardian.R
 import com.example.modoguardian.ui.theme.AzulInsertCode
 import com.example.modoguardian.viewmodel.LoginViewModel
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun LoginScreen(
@@ -60,6 +61,12 @@ fun LoginScreen(
 ) {
     val uiState by loginViewModel.uiState.collectAsState()
     val errores by loginViewModel.errores.collectAsState()
+    val usuarioActual by loginViewModel.usuarioActual.collectAsState()
+    LaunchedEffect(usuarioActual) {
+        if (usuarioActual != null) {
+            onLoginSuccess()
+        }
+    }
     val anchoMaximo = when (widthSizeClass) {
         WindowWidthSizeClass.Compact -> 520.dp
         WindowWidthSizeClass.Medium -> 600.dp
@@ -137,7 +144,7 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(24.dp))
                 Button(
-                    onClick = { if (loginViewModel.iniciarSesion()) onLoginSuccess() },
+                    onClick = { loginViewModel.iniciarSesion() },
                     enabled = uiState.email.isNotBlank() && uiState.password.isNotBlank() && !uiState.isLoading,
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AzulInsertCode),
