@@ -1,7 +1,6 @@
 package com.example.modoguardian.ui.screens
 
 import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -146,7 +145,7 @@ private fun LoginForm(
         Image(
             painter = painterResource(id = R.drawable.logo_guardian),
             contentDescription = "Logo de Modo Guardián",
-            modifier = Modifier.size(140.dp)
+            modifier = Modifier.size(100.dp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
