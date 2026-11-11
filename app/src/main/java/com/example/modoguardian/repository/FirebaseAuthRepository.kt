@@ -3,7 +3,9 @@ package com.example.modoguardian.repository
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.UserProfileChangeRequest
 
 class FirebaseAuthRepository(
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -31,6 +33,11 @@ class FirebaseAuthRepository(
         )
     }
 
+    // Iniciar sesión en Firebase con Google
+    fun iniciarSesionConGoogle(credencial: AuthCredential): Task<AuthResult> {
+        return firebaseAuth.signInWithCredential(credencial)
+    }
+
     // Enviar correo para restablecer la contraseña
     fun enviarRestablecimientoPassword(
         email: String
@@ -48,5 +55,13 @@ class FirebaseAuthRepository(
     // Cerrar sesion
     fun cerrarSesion() {
         firebaseAuth.signOut()
+    }
+
+    // Actualizar el nombre en Firebase
+    fun actualizarNombre(nombre: String): Task<Void>? {
+        val usuario = firebaseAuth.currentUser ?: return null
+        val actualizacion = UserProfileChangeRequest.Builder()
+            .setDisplayName(nombre.trim()).build()
+        return usuario.updateProfile(actualizacion)
     }
 }

@@ -35,6 +35,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.modoguardian.R
 import com.example.modoguardian.viewmodel.RegistroViewModel
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun RegistroScreen(
@@ -43,6 +45,12 @@ fun RegistroScreen(
     onIniciarSesion: () -> Unit
 ) {
     val estado by registroViewModel.uiState.collectAsState()
+    LaunchedEffect(estado.registrado) {
+        if (estado.registrado != null) {
+            onRegistroExitoso()
+            registroViewModel.limpiarRegistroExitoso()
+        }
+    }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -111,8 +119,20 @@ fun RegistroScreen(
                             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(Modifier.height(18.dp))
-                        Button(onClick = { if (registroViewModel.registrar()) onRegistroExitoso() }, modifier = Modifier.fillMaxWidth().height(54.dp)) {
-                            Text("Crear cuenta", fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { registroViewModel.registrar() },
+                            enabled = !estado.isLoading,
+                            modifier = Modifier.fillMaxWidth().height(54.dp)
+                        ) {
+                            if (estado.isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.height(22.dp).width(22.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+
+                                Text("Crear cuenta", fontWeight = FontWeight.Bold)
+                            }
                         }
                         TextButton(onClick = onIniciarSesion, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                             Text("¿Ya tienes cuenta? Inicia sesión")

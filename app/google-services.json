@@ -12,7 +12,20 @@
           "package_name": "com.example.modoguardian"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "507219160879-rhqbbrnvthoj61v76oml6dfit9gcpffc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.modoguardian",
+            "certificate_hash": "2772aa48be43744d642941a4cafd0e6a9ce7e561"
+          }
+        },
+        {
+          "client_id": "507219160879-petf7ur35u2mm2nj2i9s86si9a91v65r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB7Yg9ZaVu_69YgAIO38fS6iq3ZBgqVb4o"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "507219160879-petf7ur35u2mm2nj2i9s86si9a91v65r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

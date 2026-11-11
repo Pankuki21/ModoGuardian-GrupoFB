@@ -1,6 +1,7 @@
 package com.example.modoguardian.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,9 +51,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
+import com.example.modoguardian.model.Rol
 import com.example.modoguardian.model.Usuario
+import com.example.modoguardian.model.UsuarioPrueba
 import com.example.modoguardian.ui.theme.AzulInsertCode
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private enum class SeccionPanel(val etiqueta: String, val icono: String) {
     INICIO("Inicio", IconosUi.Home),
@@ -64,6 +70,20 @@ private enum class SeccionPanel(val etiqueta: String, val icono: String) {
 
 private data class CamaraLocal(val nombre: String, val zona: String, val enLinea: Boolean, val grabando: Boolean)
 private data class EventoLocal(val titulo: String, val lugar: String, val hora: String, val estado: String, val tipo: String)
+private data class AccionLocal(val evento: String, val usuario: String, val rol: String, val accion: String, val hora: String)
+private data class PermisosRol(
+    val puedeGestionarUsuarios: Boolean,
+    val puedeAjustarParametros: Boolean,
+    val puedeRegistrarSeguimiento: Boolean,
+    val puedeAtenderEventos: Boolean,
+    val puedeOperarCamaras: Boolean
+)
+
+private fun permisosPara(rol: Rol) = when (rol) {
+    Rol.ADMINISTRADOR -> PermisosRol(true, true, false, false, false)
+    Rol.SUPERVISOR -> PermisosRol(false, false, true, false, false)
+    Rol.OPERADOR -> PermisosRol(false, false, false, true, true)
+}
 
 private val camarasDemo = listOf(
     CamaraLocal("Entrada Principal", "Zona Sur", true, true),
@@ -86,13 +106,19 @@ fun PanelPrincipalScreen(
     usuario: Usuario,
     modoOscuro: Boolean,
     onCambiarModoOscuro: (Boolean) -> Unit,
+    usuariosPrueba: List<UsuarioPrueba>,
+    onCambiarRolUsuario: (String, Rol) -> Unit,
+    onCambiarAccesoUsuario: (String, Boolean) -> Unit,
     onCerrarSesion: () -> Unit
 ) {
+    val permisos = permisosPara(usuario.rol)
     var seccion by remember { mutableStateOf(SeccionPanel.INICIO) }
     var camaraSeleccionada by remember { mutableStateOf<CamaraLocal?>(null) }
-    var detalleAlerta by remember { mutableStateOf(false) }
+    var alertaSeleccionada by remember { mutableStateOf<EventoLocal?>(null) }
     var dialogo by remember { mutableStateOf<String?>(null) }
     var eventos by remember { mutableStateOf(eventosDemo) }
+    var accionesLocal by remember { mutableStateOf(emptyList<AccionLocal>()) }
+    var usuariosLocal by remember { mutableStateOf(usuariosPrueba) }
     var filtroEvento by remember { mutableStateOf("Todos") }
     var pushActivo by remember { mutableStateOf(true) }
     var alertasCriticas by remember { mutableStateOf(true) }
@@ -109,7 +135,7 @@ fun PanelPrincipalScreen(
                 SeccionPanel.entries.forEach { destino ->
                     NavigationBarItem(
                         selected = seccion == destino,
-                        onClick = { seccion = destino; detalleAlerta = false; camaraSeleccionada = null },
+                        onClick = { seccion = destino; alertaSeleccionada = null; camaraSeleccionada = null },
                         icon = { IconoUi(destino.icono, contentDescription = destino.etiqueta) },
                         label = { Text(destino.etiqueta, fontSize = 10.sp) }
                     )
@@ -121,14 +147,23 @@ fun PanelPrincipalScreen(
             when (seccion) {
                 SeccionPanel.INICIO -> InicioContenido(
                     usuario = usuario,
+                    rol = usuario.rol,
                     onIrCamaras = { seccion = SeccionPanel.CAMARAS },
                     onIrEventos = { seccion = SeccionPanel.EVENTOS },
-                    onIrAlertas = { seccion = SeccionPanel.ALERTAS; detalleAlerta = true },
+                    onIrAlertas = {
+                        seccion = SeccionPanel.ALERTAS
+                        alertaSeleccionada = eventos.firstOrNull { it.tipo == "Crítica" || it.tipo == "Alerta" }
+                    },
                     onReporte = { avisar("Prototipo local: reporte de incidencia no conectado a servicios.") }
                 )
                 SeccionPanel.CAMARAS -> {
                     if (camaraSeleccionada == null) ListaCamaras(onSeleccionar = { camaraSeleccionada = it })
-                    else VistaCamara(camaraSeleccionada!!, onVolver = { camaraSeleccionada = null }, onAccion = { avisar(it) })
+                    else VistaCamara(
+                        camera = camaraSeleccionada!!,
+                        puedeOperar = permisos.puedeOperarCamaras,
+                        onVolver = { camaraSeleccionada = null },
+                        onAccion = { avisar(it) }
+                    )
                 }
                 SeccionPanel.EVENTOS -> EventosContenido(
                     eventos = eventos,
@@ -136,23 +171,34 @@ fun PanelPrincipalScreen(
                     onFiltro = { filtroEvento = it },
                     onReporte = { avisar("Prototipo local: exportación PDF aún no conectada.") }
                 )
-                SeccionPanel.ALERTAS -> if (detalleAlerta) {
+                SeccionPanel.ALERTAS -> if (alertaSeleccionada != null) {
+                    val alerta = eventos.firstOrNull { it.titulo == alertaSeleccionada?.titulo } ?: alertaSeleccionada!!
                     DetalleAlerta(
-                        confirmada = eventos.firstOrNull { it.tipo == "Crítica" }?.estado == "Confirmada",
-                        onVolver = { detalleAlerta = false },
-                        onConfirmar = {
-                            eventos = eventos.map { if (it.tipo == "Crítica") it.copy(estado = "Confirmada") else it }
-                            avisar("Alerta confirmada localmente.")
-                        },
-                        onFalsa = {
-                            eventos = eventos.map { if (it.tipo == "Crítica") it.copy(estado = "Falsa alarma") else it }
-                            avisar("Marcada como falsa alarma localmente.")
+                        evento = alerta,
+                        permisos = permisos,
+                        acciones = accionesLocal.filter { it.evento == alerta.titulo },
+                        onVolver = { alertaSeleccionada = null },
+                        onCambiarEstado = { nuevoEstado ->
+                            eventos = eventos.map { if (it.titulo == alerta.titulo) it.copy(estado = nuevoEstado) else it }
+                            accionesLocal = listOf(
+                                AccionLocal(
+                                    evento = alerta.titulo,
+                                    usuario = usuario.nombre,
+                                    rol = usuario.rol.name.lowercase().replaceFirstChar { it.uppercase() },
+                                    accion = nuevoEstado,
+                                    hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                                )
+                            ) + accionesLocal
+                            avisar("${usuario.nombre} registró: $nuevoEstado")
                         },
                         onAccion = { avisar(it) }
                     )
-                } else AlertasContenido(eventos, onAbrir = { detalleAlerta = true })
+                } else AlertasContenido(eventos, onAbrir = { alertaSeleccionada = it })
                 SeccionPanel.PERFIL -> PerfilContenido(
                     usuario = usuario,
+                    permisos = permisos,
+                    usuariosPrueba = usuariosLocal,
+                    eventosPendientes = eventos.count { it.estado == "Pendiente" },
                     modoOscuro = modoOscuro,
                     onModoOscuro = onCambiarModoOscuro,
                     pushActivo = pushActivo,
@@ -161,6 +207,20 @@ fun PanelPrincipalScreen(
                     onCriticas = { alertasCriticas = it },
                     dosPasos = dosPasos,
                     onDosPasos = { dosPasos = it; avisar("Preferencia de demostración actualizada.") },
+                    onIrEventos = { seccion = SeccionPanel.EVENTOS },
+                    onIrAlertas = { seccion = SeccionPanel.ALERTAS; alertaSeleccionada = null },
+                    onCambiarRolUsuario = { correo, rol ->
+                        onCambiarRolUsuario(correo, rol)
+                        usuariosLocal = usuariosLocal.map { if (it.correo == correo) it.copy(rol = rol) else it }
+                        avisar("Rol de prueba actualizado")
+                    },
+                    onCambiarAccesoUsuario = { correo, habilitado ->
+                        onCambiarAccesoUsuario(correo, habilitado)
+                        usuariosLocal = usuariosLocal.map {
+                            if (it.correo == correo) it.copy(habilitado = habilitado) else it
+                        }
+                        avisar("Acceso de demostración actualizado")
+                    },
                     onOpcion = { dialogo = it },
                     onCerrarSesion = onCerrarSesion
                 )
@@ -178,9 +238,14 @@ fun PanelPrincipalScreen(
 }
 
 @Composable
-private fun InicioContenido(usuario: Usuario, onIrCamaras: () -> Unit, onIrEventos: () -> Unit, onIrAlertas: () -> Unit, onReporte: () -> Unit) {
+private fun InicioContenido(usuario: Usuario, rol: Rol, onIrCamaras: () -> Unit, onIrEventos: () -> Unit, onIrAlertas: () -> Unit, onReporte: () -> Unit) {
     ColumnaDesplazable {
-        FilaMarca(usuario.nombre, "Turno activo · Zona Sur", onIrAlertas)
+        val subtitulo = when (rol) {
+            Rol.ADMINISTRADOR -> "Administración · Acceso general"
+            Rol.SUPERVISOR -> "Supervisión · Seguimiento del turno"
+            Rol.OPERADOR -> "Operación · Atención de eventos"
+        }
+        FilaMarca(usuario.nombre, subtitulo, onIrAlertas)
         TarjetaPanel(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -259,7 +324,7 @@ private fun ListaCamaras(onSeleccionar: (CamaraLocal) -> Unit) {
                     }
                     Text(if (camera.grabando) "● REC" else "● OFFLINE", color = if (camera.grabando) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.TopStart).padding(10.dp))
                 }
-                Text("Abrir controles  ›", color = AzulInsertCode, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.End).padding(top = 8.dp))
+                Text("Abrir controles", color = AzulInsertCode, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.End).padding(top = 8.dp))
             }
         }
         NotaLocal()
@@ -267,10 +332,10 @@ private fun ListaCamaras(onSeleccionar: (CamaraLocal) -> Unit) {
 }
 
 @Composable
-private fun VistaCamara(camera: CamaraLocal, onVolver: () -> Unit, onAccion: (String) -> Unit) {
+private fun VistaCamara(camera: CamaraLocal, puedeOperar: Boolean, onVolver: () -> Unit, onAccion: (String) -> Unit) {
     ColumnaDesplazable {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onVolver) { IconoUi(IconosUi.ArrowBack, "Volver") }
+            TextButton(onClick = onVolver) { Text("Volver") }
             Column {
                 Text(camera.nombre, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("VISTA PREVIA · DEMO · INSERCODE", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
@@ -286,12 +351,16 @@ private fun VistaCamara(camera: CamaraLocal, onVolver: () -> Unit, onAccion: (St
             Text("MODO DEMOSTRACIÓN\nINSERCODE CAM-${camarasDemo.indexOf(camera) + 1}", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.TopStart).padding(16.dp))
             EstadoPildora(if (camera.grabando) "● REC" else "EN ESPERA", if (camera.grabando) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant, Modifier.align(Alignment.TopEnd).padding(12.dp))
         }
-        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-            ControlCamara("Foto", IconosUi.CameraAlt) { onAccion("La captura solo se previsualiza en este prototipo local.") }
-            ControlCamara(if (camera.grabando) "Parar" else "Grabar", IconosUi.CheckCircle) { onAccion("Control de grabación disponible en la vista de demostración.") }
-            ControlCamara("Hablar", IconosUi.MicOff) { onAccion("Audio bidireccional no configurado.") }
-            ControlCamara("Luz", IconosUi.FlashlightOn) { onAccion("Luz de cámara no conectada en esta versión.") }
-            ControlCamara("Pantalla", IconosUi.Fullscreen) { onAccion("La vista ampliada requiere conectar una cámara.") }
+        if (puedeOperar) {
+            Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                ControlCamara("Foto", IconosUi.CameraAlt) { onAccion("La captura solo se previsualiza en este prototipo local") }
+                ControlCamara(if (camera.grabando) "Parar" else "Grabar", IconosUi.CheckCircle) { onAccion("Control de grabación disponible en la vista de demostración") }
+                ControlCamara("Hablar", IconosUi.MicOff) { onAccion("Audio bidireccional no configurado") }
+                ControlCamara("Luz", IconosUi.FlashlightOn) { onAccion("Luz de cámara no conectada en esta versión") }
+                ControlCamara("Pantalla", IconosUi.Fullscreen) { onAccion("La vista ampliada requiere conectar una cámara") }
+            }
+        } else {
+            Text("Vista de consulta para este rol", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         TarjetaPanel(Modifier.fillMaxWidth()) {
             Text("Estado del dispositivo", fontWeight = FontWeight.Bold)
@@ -347,7 +416,7 @@ private fun EventosContenido(eventos: List<EventoLocal>, filtro: String, onFiltr
 }
 
 @Composable
-private fun AlertasContenido(eventos: List<EventoLocal>, onAbrir: () -> Unit) {
+private fun AlertasContenido(eventos: List<EventoLocal>, onAbrir: (EventoLocal) -> Unit) {
     ColumnaDesplazable {
         Encabezado("Alertas", "Atención y respuesta del turno")
         TarjetaPanel(Modifier.fillMaxWidth()) {
@@ -359,7 +428,7 @@ private fun AlertasContenido(eventos: List<EventoLocal>, onAbrir: () -> Unit) {
             }
         }
         eventos.filter { it.tipo == "Crítica" || it.tipo == "Alerta" }.forEach { evento ->
-            TarjetaPanel(Modifier.fillMaxWidth(), alHacerClic = onAbrir) {
+            TarjetaPanel(Modifier.fillMaxWidth(), alHacerClic = { onAbrir(evento) }) {
                 Row(verticalAlignment = Alignment.Top) {
                     Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF3A202E)), contentAlignment = Alignment.Center) {
                         IconoUi(IconosUi.Security, null, tint = MaterialTheme.colorScheme.error)
@@ -373,7 +442,7 @@ private fun AlertasContenido(eventos: List<EventoLocal>, onAbrir: () -> Unit) {
                     EstadoPildora(evento.estado, if (evento.estado == "Pendiente") MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary)
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("Ver detalle y acciones  ›", color = AzulInsertCode, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.End))
+                Text("Ver detalle y acciones", color = AzulInsertCode, style = MaterialTheme.typography.labelLarge, modifier = Modifier.align(Alignment.End))
             }
         }
         NotaLocal()
@@ -381,19 +450,26 @@ private fun AlertasContenido(eventos: List<EventoLocal>, onAbrir: () -> Unit) {
 }
 
 @Composable
-private fun DetalleAlerta(confirmada: Boolean, onVolver: () -> Unit, onConfirmar: () -> Unit, onFalsa: () -> Unit, onAccion: (String) -> Unit) {
+private fun DetalleAlerta(
+    evento: EventoLocal,
+    permisos: PermisosRol,
+    acciones: List<AccionLocal>,
+    onVolver: () -> Unit,
+    onCambiarEstado: (String) -> Unit,
+    onAccion: (String) -> Unit
+) {
     ColumnaDesplazable {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onVolver) { IconoUi(IconosUi.ArrowBack, "Volver") }
-            Text("Alerta crítica", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            TextButton(onClick = onVolver) { Text("Volver") }
+            Text(evento.titulo, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.weight(1f)); EstadoPildora("● CRÍTICO", MaterialTheme.colorScheme.error)
         }
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF301D2B)), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp)) {
-                Text("Movimiento no autorizado detectado", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(evento.titulo, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(16.dp))
-                FilaDato(IconosUi.Place, "Ubicación", "Perímetro Norte – Cámara 04")
-                FilaDato(IconosUi.AccessTime, "Registro", "Evento de demostración · 14:32")
+                FilaDato(IconosUi.Place, "Ubicación", evento.lugar)
+                FilaDato(IconosUi.AccessTime, "Registro", "Evento de demostración · ${evento.hora}")
                 FilaDato(IconosUi.Security, "Confianza IA", "92% · Persona detectada")
                 Spacer(Modifier.height(16.dp))
                 androidx.compose.material3.LinearProgressIndicator(progress = { .92f }, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.secondary)
@@ -414,30 +490,82 @@ private fun DetalleAlerta(confirmada: Boolean, onVolver: () -> Unit, onConfirmar
             FilaDato(IconosUi.Videocam, "Cámara", "CAM-04")
             FilaDato(IconosUi.AccessTime, "Duración", "12 segundos")
         }
-        Text("ACCIONES REQUERIDAS", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge, letterSpacing = 1.sp)
-        Button(onClick = onConfirmar, enabled = !confirmada, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth().height(58.dp)) {
-            IconoUi(IconosUi.Security, null); Spacer(Modifier.width(8.dp)); Text(if (confirmada) "Alerta confirmada localmente" else "Confirmar alerta · Demo local")
+        if (permisos.puedeAtenderEventos) {
+            Text("ACCIONES DEL OPERADOR", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge, letterSpacing = 1.sp)
+            Button(
+                onClick = { onCambiarEstado("Atendida") },
+                enabled = evento.estado != "Atendida" && evento.estado != "Falsa alarma",
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier.fillMaxWidth().height(58.dp)
+            ) {
+                IconoUi(IconosUi.Security, null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (evento.estado == "Atendida") "Atención registrada" else "Registrar atención")
+            }
+            OutlinedButton(
+                onClick = { onCambiarEstado("Falsa alarma") },
+                enabled = evento.estado != "Atendida" && evento.estado != "Falsa alarma",
+                modifier = Modifier.fillMaxWidth().height(54.dp)
+            ) { Text("Marcar falsa alarma", color = MaterialTheme.colorScheme.tertiary) }
+            OutlinedButton(onClick = { onAccion("Incidencia preparada para el reporte local") }, modifier = Modifier.fillMaxWidth().height(54.dp)) {
+                Text("Reportar incidencia")
+            }
         }
-        OutlinedButton(onClick = onFalsa, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("✓   Falsa alarma", color = MaterialTheme.colorScheme.tertiary) }
-        OutlinedButton(onClick = { onAccion("Reporte de incidencia preparado en modo local.") }, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("▧   Reportar incidencia con foto") }
-        OutlinedButton(onClick = { onAccion("No hay un número de central configurado para llamar.") }, modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("☎   Llamar a central") }
-        TarjetaPanel(Modifier.fillMaxWidth()) { Text("Protocolo InsertCode · demostración", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary); Text("Los tiempos de respuesta y el escalamiento deben configurarse con el servicio central.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (permisos.puedeRegistrarSeguimiento) {
+            Text("SEGUIMIENTO DEL SUPERVISOR", color = AzulInsertCode, style = MaterialTheme.typography.labelLarge, letterSpacing = 1.sp)
+            Button(
+                onClick = { onCambiarEstado("En seguimiento") },
+                enabled = evento.estado != "En seguimiento" && evento.estado != "Atendida" && evento.estado != "Falsa alarma",
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Text(if (evento.estado == "En seguimiento") "Seguimiento registrado" else "Registrar seguimiento")
+            }
+        }
+        if (permisos.puedeGestionarUsuarios) {
+            TarjetaPanel(Modifier.fillMaxWidth()) {
+                Text("Vista de administración", fontWeight = FontWeight.Bold)
+                Text("El administrador consulta las alertas y gestiona los parámetros desde su perfil", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (acciones.isNotEmpty()) {
+            TarjetaPanel(Modifier.fillMaxWidth()) {
+                Text("Registro de atención", fontWeight = FontWeight.Bold)
+                acciones.forEach { accion ->
+                    Text("${accion.hora} · ${accion.usuario} · ${accion.rol}: ${accion.accion}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        TarjetaPanel(Modifier.fillMaxWidth()) {
+            Text("Protocolo InsertCode · demostración", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+            Text("Los tiempos de respuesta y el escalamiento deben configurarse con el servicio central", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         NotaLocal()
     }
 }
 
 @Composable
 private fun PerfilContenido(
-    usuario: Usuario, modoOscuro: Boolean, onModoOscuro: (Boolean) -> Unit,
+    usuario: Usuario,
+    permisos: PermisosRol,
+    usuariosPrueba: List<UsuarioPrueba>,
+    eventosPendientes: Int,
+    modoOscuro: Boolean,
+    onModoOscuro: (Boolean) -> Unit,
     pushActivo: Boolean, onPush: (Boolean) -> Unit,
     alertasCriticas: Boolean, onCriticas: (Boolean) -> Unit,
     dosPasos: Boolean, onDosPasos: (Boolean) -> Unit,
+    onIrEventos: () -> Unit,
+    onIrAlertas: () -> Unit,
+    onCambiarRolUsuario: (String, Rol) -> Unit,
+    onCambiarAccesoUsuario: (String, Boolean) -> Unit,
     onOpcion: (String) -> Unit, onCerrarSesion: () -> Unit
 ) {
     ColumnaDesplazable {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { Text("Mi Perfil", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Text("Cuenta y preferencias del turno", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            IconButton(onClick = { onOpcion("Configuración") }) { IconoUi(IconosUi.Settings, "Configuración") }
+            if (permisos.puedeAjustarParametros) {
+                IconButton(onClick = { onOpcion("Configuración") }) { IconoUi(IconosUi.Settings, "Configuración") }
+            }
         }
         TarjetaPanel(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -460,18 +588,58 @@ private fun PerfilContenido(
                 EstadisticaPerfil("3", "Resueltas", IconosUi.Warning)
             }
         }
-        TituloSeccionSimple("MI CUENTA")
-        GrupoOpciones {
-            OpcionPerfil(IconosUi.Videocam, "Mis cámaras asignadas", "12 dispositivos") { onOpcion("Cámaras asignadas") }
-            OpcionPerfil(IconosUi.History, "Historial de turnos", "Turnos anteriores y registros") { onOpcion("Historial de turnos") }
-            OpcionPerfil(IconosUi.Shield, "Credencial de guardia", "Documento de demostración") { onOpcion("Credencial de guardia") }
+        when {
+            permisos.puedeGestionarUsuarios -> {
+                TituloSeccionSimple("ADMINISTRACIÓN")
+                GrupoOpciones {
+                    Text("Usuarios y roles de prueba", modifier = Modifier.padding(14.dp), fontWeight = FontWeight.Bold)
+                    usuariosPrueba.forEach { cuenta ->
+                        OpcionPerfil(
+                            IconosUi.Person,
+                            cuenta.nombre,
+                            "${cuenta.correo} · ${cuenta.rol.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                            cuenta.habilitado,
+                            { onCambiarAccesoUsuario(cuenta.correo, it) }
+                        )
+                        val siguienteRol = Rol.entries[(Rol.entries.indexOf(cuenta.rol) + 1) % Rol.entries.size]
+                        TextButton(
+                            onClick = { onCambiarRolUsuario(cuenta.correo, siguienteRol) },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Cambiar rol a ${siguienteRol.name.lowercase().replaceFirstChar { it.uppercase() }}")
+                        }
+                    }
+                }
+                TituloSeccionSimple("PARÁMETROS GLOBALES")
+                GrupoOpciones {
+                    OpcionPerfil(IconosUi.Warning, "Alertas críticas", "Activar avisos prioritarios", alertasCriticas, onCriticas)
+                    OpcionPerfil(IconosUi.Security, "Verificación en 2 pasos", "Preferencia de demostración", dosPasos, onDosPasos)
+                }
+                Text("Los cambios de prueba se guardan en este dispositivo y no reemplazan los permisos de Firebase", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+            permisos.puedeRegistrarSeguimiento -> {
+                TituloSeccionSimple("SUPERVISIÓN")
+                GrupoOpciones {
+                    OpcionPerfil(IconosUi.Warning, "Eventos pendientes", "$eventosPendientes por revisar", onClick = onIrEventos)
+                    OpcionPerfil(IconosUi.History, "Seguimiento de alertas", "Revisar y registrar seguimiento", onClick = onIrAlertas)
+                    OpcionPerfil(IconosUi.Description, "Reporte del turno", "Resumen de indicadores locales") { onOpcion("Reporte del turno") }
+                }
+            }
+            permisos.puedeAtenderEventos -> {
+                TituloSeccionSimple("OPERACIÓN")
+                GrupoOpciones {
+                    OpcionPerfil(IconosUi.Videocam, "Cámaras asignadas", "Consultar estado y vista simulada") { onOpcion("Cámaras asignadas") }
+                    OpcionPerfil(IconosUi.Warning, "Eventos pendientes", "$eventosPendientes por atender", onClick = onIrEventos)
+                    OpcionPerfil(IconosUi.Notifications, "Alertas críticas", "Abrir y registrar atención", onClick = onIrAlertas)
+                }
+            }
         }
-        TituloSeccionSimple("SEGURIDAD")
+        TituloSeccionSimple("PREFERENCIAS")
         GrupoOpciones {
-            OpcionPerfil(IconosUi.Lock, "Cambiar contraseña", "") { onOpcion("Cambiar contraseña") }
-            OpcionPerfil(IconosUi.Security, "Verificación en 2 pasos", "Preferencia local", dosPasos, onDosPasos)
             OpcionPerfil(IconosUi.Notifications, "Notificaciones push", "Avisos de la aplicación", pushActivo, onPush)
-            OpcionPerfil(IconosUi.Warning, "Alertas críticas", "Prioridad alta", alertasCriticas, onCriticas)
+            if (!permisos.puedeAjustarParametros) {
+                OpcionPerfil(IconosUi.Warning, "Alertas críticas", "Preferencia personal", alertasCriticas, onCriticas)
+            }
         }
         TituloSeccionSimple("APLICACIÓN · INSERCODE")
         GrupoOpciones {
@@ -480,7 +648,7 @@ private fun PerfilContenido(
             OpcionPerfil(IconosUi.Description, "Términos y políticas de seguridad", "") { onOpcion("Términos y políticas") }
         }
         OutlinedButton(onClick = onCerrarSesion, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-            IconoUi(IconosUi.Logout, null); Spacer(Modifier.width(8.dp)); Text("Cerrar sesión")
+            Text("Cerrar sesión")
         }
         Text("InsertCode · Modo Guardián · Prototipo local", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterHorizontally))
         NotaLocal()
@@ -604,11 +772,15 @@ private fun PerfilContenido(
 }
 
 @Composable private fun OpcionPerfil(icono: String, titulo: String, subtitulo: String, valor: Boolean? = null, onCambio: ((Boolean) -> Unit)? = null, onClick: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth()
+            .then(if (onClick != null && valor == null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { IconoUi(icono, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp)) }
         Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(titulo, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold); if (subtitulo.isNotBlank()) Text(subtitulo, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
         if (valor != null && onCambio != null) Switch(checked = valor, onCheckedChange = onCambio)
-        else if (onClick != null) TextButton(onClick = onClick) { Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.headlineSmall) }
     }
     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.background)
 }

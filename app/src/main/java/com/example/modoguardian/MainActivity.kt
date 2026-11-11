@@ -93,10 +93,18 @@ class MainActivity : ComponentActivity() {
 
                         usuarioActual?.let { usuario ->
 
-                            PanelPrincipalScreen(usuario, modoOscuro, { modoOscuro = it }) {
+                            PanelPrincipalScreen(
+                                usuario = usuario,
+                                modoOscuro = modoOscuro,
+                                onCambiarModoOscuro = { modoOscuro = it },
+                                usuariosPrueba = loginViewModel.obtenerUsuariosDePrueba(),
+                                onCambiarRolUsuario = loginViewModel::actualizarRolDePrueba,
+                                onCambiarAccesoUsuario = loginViewModel::actualizarAccesoDePrueba,
+                                onCerrarSesion = {
                                 loginViewModel.cerrarSesion()
                                 navController.navigate("login") { popUpTo(0) { inclusive = true } }
-                            }
+                                }
+                            )
                         }
                     }
 
@@ -105,10 +113,18 @@ class MainActivity : ComponentActivity() {
 
                         usuarioActual?.let { usuario ->
 
-                            PanelPrincipalScreen(usuario, modoOscuro, { modoOscuro = it }) {
+                            PanelPrincipalScreen(
+                                usuario = usuario,
+                                modoOscuro = modoOscuro,
+                                onCambiarModoOscuro = { modoOscuro = it },
+                                usuariosPrueba = loginViewModel.obtenerUsuariosDePrueba(),
+                                onCambiarRolUsuario = loginViewModel::actualizarRolDePrueba,
+                                onCambiarAccesoUsuario = loginViewModel::actualizarAccesoDePrueba,
+                                onCerrarSesion = {
                                 loginViewModel.cerrarSesion()
                                 navController.navigate("login") { popUpTo(0) { inclusive = true } }
-                            }
+                                }
+                            )
                         }
                     }
 
@@ -117,10 +133,18 @@ class MainActivity : ComponentActivity() {
 
                         usuarioActual?.let { usuario ->
 
-                            PanelPrincipalScreen(usuario, modoOscuro, { modoOscuro = it }) {
+                            PanelPrincipalScreen(
+                                usuario = usuario,
+                                modoOscuro = modoOscuro,
+                                onCambiarModoOscuro = { modoOscuro = it },
+                                usuariosPrueba = loginViewModel.obtenerUsuariosDePrueba(),
+                                onCambiarRolUsuario = loginViewModel::actualizarRolDePrueba,
+                                onCambiarAccesoUsuario = loginViewModel::actualizarAccesoDePrueba,
+                                onCerrarSesion = {
                                 loginViewModel.cerrarSesion()
                                 navController.navigate("login") { popUpTo(0) { inclusive = true } }
-                            }
+                                }
+                            )
                         }
                     }
                 }

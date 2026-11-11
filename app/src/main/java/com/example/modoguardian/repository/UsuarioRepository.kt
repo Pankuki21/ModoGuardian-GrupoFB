@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import com.example.modoguardian.model.Rol
 import com.example.modoguardian.model.Usuario
+import com.example.modoguardian.model.UsuarioPrueba
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.SecureRandom
@@ -36,6 +37,43 @@ class UsuarioRepository(context: Context) {
             rol = Rol.OPERADOR
         )
     )
+
+    /** Obtiene el rol de una cuenta preconfigurada */
+    fun obtenerRolPorCorreo(correo: String): Rol {
+        val correoLimpio = correo.trim()
+        val rolBase = usuariosDePrueba.firstOrNull {
+            it.correo.equals(correoLimpio, ignoreCase = true)
+        }?.rol ?: Rol.OPERADOR
+        val rolGuardado = preferencias.getString(claveRol(correoLimpio), null)
+        return rolGuardado?.let { runCatching { Rol.valueOf(it) }.getOrNull() } ?: rolBase
+    }
+
+    fun obtenerUsuariosDePrueba(): List<UsuarioPrueba> = usuariosDePrueba.map { usuario ->
+        UsuarioPrueba(
+            nombre = usuario.nombre,
+            correo = usuario.correo,
+            rol = obtenerRolPorCorreo(usuario.correo),
+            habilitado = preferencias.getBoolean(claveActivo(usuario.correo), true)
+        )
+    }
+
+    fun actualizarRolDePrueba(correo: String, rol: Rol) {
+        if (esCorreoDeRolPreconfigurado(correo)) {
+            preferencias.edit().putString(claveRol(correo), rol.name).apply()
+        }
+    }
+
+    fun actualizarAccesoDePrueba(correo: String, habilitado: Boolean) {
+        if (esCorreoDeRolPreconfigurado(correo)) {
+            preferencias.edit().putBoolean(claveActivo(correo), habilitado).apply()
+        }
+    }
+
+    fun estaHabilitado(correo: String): Boolean =
+        !esCorreoDeRolPreconfigurado(correo) || preferencias.getBoolean(claveActivo(correo), true)
+
+    fun esCorreoDeRolPreconfigurado(correo: String): Boolean =
+        usuariosDePrueba.any { it.correo.equals(correo.trim(), ignoreCase = true) }
 
     fun autenticar(correo: String, clave: String): Usuario? {
         val correoLimpio = correo.trim().lowercase()
@@ -114,6 +152,10 @@ class UsuarioRepository(context: Context) {
     }
 
     private data class CuentaLocal(val usuario: Usuario, val salt: ByteArray, val hash: ByteArray)
+
+    private fun claveRol(correo: String) = "rol_${correo.trim().lowercase()}"
+
+    private fun claveActivo(correo: String) = "activo_${correo.trim().lowercase()}"
 
     sealed interface ResultadoRegistro {
         data class Exito(val usuario: Usuario) : ResultadoRegistro

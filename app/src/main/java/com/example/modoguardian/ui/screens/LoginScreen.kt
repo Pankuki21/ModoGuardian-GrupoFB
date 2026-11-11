@@ -40,6 +40,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -59,6 +61,7 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onCrearCuenta: () -> Unit
 ) {
+    val activity = LocalContext.current as? Activity
     val uiState by loginViewModel.uiState.collectAsState()
     val errores by loginViewModel.errores.collectAsState()
     val usuarioActual by loginViewModel.usuarioActual.collectAsState()
@@ -89,7 +92,7 @@ fun LoginScreen(
                     modifier = Modifier.width(190.dp).height(104.dp)
                 )
                 Text("INSERCODE · SEGURIDAD INTEGRAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.5.sp)
-                Text("MODO LOCAL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("ACCESO CON FIREBASE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 Spacer(Modifier.height(28.dp))
                 Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(28.dp)) {
@@ -151,7 +154,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth().height(58.dp)
                 ) {
                     if (uiState.isLoading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-                    else Text("Ingresar al sistema     →", fontWeight = FontWeight.Bold)
+                    else Text("Ingresar al sistema", fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(12.dp))
                 Text("Tus permisos se cargarán según tu perfil", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -163,7 +166,11 @@ fun LoginScreen(
                 }
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("G   Google") }
+                    OutlinedButton(
+                        onClick = { activity?.let(loginViewModel::iniciarSesionConGoogle) },
+                        enabled = !uiState.isLoading,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("G   Google") }
                     OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("●   Apple") }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -175,7 +182,7 @@ fun LoginScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         IconoUi(IconosUi.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                        Text("Modo de demostración local · InsertCode", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text("Autenticación y permisos administrados por Firebase", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

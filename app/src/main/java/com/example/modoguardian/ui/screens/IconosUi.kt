@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.sp
 
 object IconosUi {
     const val AccessTime = "◷"
-    const val ArrowBack = "‹"
     const val BatteryAlert = "▣"
     const val CalendarMonth = "▦"
     const val CameraAlt = "◎"
@@ -25,7 +24,6 @@ object IconosUi {
     const val Home = "⌂"
     const val History = "↶"
     const val Lock = "♙"
-    const val Logout = "⇥"
     const val MicOff = "◉"
     const val Notifications = "♧"
     const val Person = "◯"
