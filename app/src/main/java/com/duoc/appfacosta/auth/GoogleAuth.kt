@@ -7,7 +7,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.duoc.appfacosta.data.model.UserSession
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.tasks.await
@@ -26,14 +26,7 @@ object GoogleAuth {
         webClientId: String,
         repo: FirebaseAuthRepository = FirebaseAuthRepository()
     ): Result<UserSession> = try {
-        if (webClientId.startsWith("TU_WEB_CLIENT_ID")) {
-            error("Falta reemplazar google_web_client_id en strings.xml")
-        }
-
-        val option = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(webClientId)
-            .build()
+        val option = GetSignInWithGoogleOption.Builder(webClientId).build()
 
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(option)

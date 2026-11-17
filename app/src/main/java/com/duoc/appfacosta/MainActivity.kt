@@ -60,7 +60,7 @@ enum class Tab(val label: String, val icon: ImageVector) {
 @Composable
 fun AppRoot() {
     val activity = LocalContext.current as? Activity
-    val webClientId = stringResource(R.string.google_web_client_id)
+    val webClientId = stringResource(R.string.default_web_client_id)
     val scope = rememberCoroutineScope()
     val authRepo = remember { FirebaseAuthRepository() }
 

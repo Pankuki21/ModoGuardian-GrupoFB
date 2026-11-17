@@ -1,6 +1,4 @@
 <resources>
     <string name="app_name">Insercode</string>
-    <!-- Reemplazar por el "Web client ID" de Google Cloud Console (tipo OAuth "Aplicación web") -->
-    <string name="google_web_client_id">212540767215-yyyy.apps.googleusercontent.com</string>
 </resources>
 
