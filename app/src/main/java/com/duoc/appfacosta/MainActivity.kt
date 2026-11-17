@@ -1,3 +1,4 @@
+
 package com.duoc.appfacosta
 
 import android.app.Activity
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
+import com.duoc.appfacosta.auth.FirebaseAuthRepository
 import com.duoc.appfacosta.auth.GoogleAuth
 import com.duoc.appfacosta.data.MockData
 import com.duoc.appfacosta.data.model.SecurityEvent
@@ -60,6 +62,7 @@ fun AppRoot() {
     val activity = LocalContext.current as? Activity
     val webClientId = stringResource(R.string.google_web_client_id)
     val scope = rememberCoroutineScope()
+    val authRepo = remember { FirebaseAuthRepository() }
 
     var session by remember { mutableStateOf<UserSession?>(null) }
     var loading by remember { mutableStateOf(false) }
@@ -84,7 +87,7 @@ fun AppRoot() {
                 loading = true
                 loginError = null
                 scope.launch {
-                    GoogleAuth.signIn(act, webClientId)
+                    GoogleAuth.signIn(act, webClientId, authRepo)
                         .onSuccess { session = it }
                         .onFailure { loginError = "No se pudo iniciar sesión con Google. Intenta nuevamente." }
                     loading = false
@@ -132,6 +135,7 @@ fun AppRoot() {
                 Tab.PROFILE -> ProfileScreen(
                     session = current,
                     onLogout = {
+                        authRepo.cerrarSesion()
                         session = null
                         tab = Tab.HOME
                     }

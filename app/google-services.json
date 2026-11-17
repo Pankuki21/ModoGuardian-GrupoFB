@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "212540767215",
+    "project_id": "modoguardian-2d9a2",
+    "storage_bucket": "modoguardian-2d9a2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:212540767215:android:bc13f4a567e715a962141a",
+        "android_client_info": {
+          "package_name": "com.duoc.appfacosta"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "212540767215-5q8uimp3pr7ig8eap682n3lc322e5amk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIGJSkLkbKyIgTKBPnk1-bcS066trPUL8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "212540767215-5q8uimp3pr7ig8eap682n3lc322e5amk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
