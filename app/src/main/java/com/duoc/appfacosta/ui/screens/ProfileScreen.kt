@@ -1,5 +1,6 @@
 package com.duoc.appfacosta.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,9 +22,13 @@ import com.duoc.appfacosta.ui.theme.*
 
 @Composable
 fun ProfileScreen(session: UserSession, onLogout: () -> Unit) {
-    var twoStep by remember { mutableStateOf(true) }
-    var push by remember { mutableStateOf(true) }
-    var critical by remember { mutableStateOf(true) }
+    val context = LocalContext.current.applicationContext
+    val preferences = remember(context) {
+        context.getSharedPreferences("insertcode_profile_settings", Context.MODE_PRIVATE)
+    }
+    var twoStep by remember { mutableStateOf(preferences.getBoolean("two_step", true)) }
+    var push by remember { mutableStateOf(preferences.getBoolean("push_notifications", true)) }
+    var critical by remember { mutableStateOf(preferences.getBoolean("critical_alerts", true)) }
 
     Column(
         modifier = Modifier
@@ -50,9 +56,18 @@ fun ProfileScreen(session: UserSession, onLogout: () -> Unit) {
 
         Text("Seguridad", fontWeight = FontWeight.SemiBold)
         DarkCard {
-            ToggleRow("Verificación en 2 pasos", "Protección adicional activada", twoStep) { twoStep = it }
-            ToggleRow("Notificaciones push", "Avisos activados", push) { push = it }
-            ToggleRow("Alertas críticas", "Siempre visibles y sonoras", critical) { critical = it }
+            ToggleRow("Verificación en 2 pasos", if (twoStep) "Protección adicional activada" else "Protección adicional desactivada", twoStep) {
+                twoStep = it
+                preferences.edit().putBoolean("two_step", it).apply()
+            }
+            ToggleRow("Notificaciones push", if (push) "Avisos activados" else "Avisos desactivados", push) {
+                push = it
+                preferences.edit().putBoolean("push_notifications", it).apply()
+            }
+            ToggleRow("Alertas críticas", if (critical) "Siempre visibles y sonoras" else "Avisos críticos desactivados", critical) {
+                critical = it
+                preferences.edit().putBoolean("critical_alerts", it).apply()
+            }
         }
 
         Button(

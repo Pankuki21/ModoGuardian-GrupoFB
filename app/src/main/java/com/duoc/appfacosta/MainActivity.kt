@@ -23,17 +23,23 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import com.duoc.appfacosta.auth.FirebaseAuthRepository
 import com.duoc.appfacosta.auth.GoogleAuth
 import com.duoc.appfacosta.data.MockData
 import com.duoc.appfacosta.data.model.SecurityEvent
 import com.duoc.appfacosta.data.model.UserSession
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseUser
 import com.duoc.appfacosta.ui.screens.*
 import com.duoc.appfacosta.ui.theme.AppFACOSTATheme
 import com.duoc.appfacosta.R
 import com.duoc.appfacosta.ui.theme.BgCard
 import com.duoc.appfacosta.ui.theme.TextMuted
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,7 +70,7 @@ fun AppRoot() {
     val scope = rememberCoroutineScope()
     val authRepo = remember { FirebaseAuthRepository() }
 
-    var session by remember { mutableStateOf<UserSession?>(null) }
+    var session by remember { mutableStateOf(authRepo.obtenerUsuarioActual()?.toUserSession()) }
     var loading by remember { mutableStateOf(false) }
     var loginError by remember { mutableStateOf<String?>(null) }
     var tab by remember { mutableStateOf(Tab.HOME) }
@@ -79,8 +85,36 @@ fun AppRoot() {
         LoginScreen(
             loading = loading,
             error = loginError,
-            onEmailLogin = { email ->
-                session = UserSession.fromEmail(email)
+            onEmailLogin = { email, password ->
+                loading = true
+                loginError = null
+                scope.launch {
+                    try {
+                        val user = authRepo.iniciarSesion(email, password).await().user
+                            ?: error("Firebase no devolvió usuario")
+                        session = user.toUserSession()
+                    } catch (error: Exception) {
+                        loginError = mensajeAuth(error, "No se pudo iniciar sesión")
+                    } finally {
+                        loading = false
+                    }
+                }
+            },
+            onRegister = { name, email, password ->
+                loading = true
+                loginError = null
+                scope.launch {
+                    try {
+                        val user = authRepo.registrar(email, password).await().user
+                            ?: error("Firebase no devolvió usuario")
+                        runCatching { authRepo.actualizarNombre(name)?.await() }
+                        session = UserSession(name, user.email ?: email)
+                    } catch (error: Exception) {
+                        loginError = mensajeAuth(error, "No se pudo crear la cuenta")
+                    } finally {
+                        loading = false
+                    }
+                }
             },
             onGoogleSignIn = {
                 val act = activity ?: return@LoginScreen
@@ -89,7 +123,16 @@ fun AppRoot() {
                 scope.launch {
                     GoogleAuth.signIn(act, webClientId, authRepo)
                         .onSuccess { session = it }
-                        .onFailure { loginError = "No se pudo iniciar sesión con Google. Intenta nuevamente." }
+                        .onFailure { error ->
+                            loginError = when (error) {
+                                is GetCredentialCancellationException -> null
+                                is NoCredentialException -> "Agrega una cuenta de Google a este dispositivo"
+                                else -> mensajeAuth(
+                                    error,
+                                    "No se pudo iniciar sesión con Google. Revisa la configuración de Firebase"
+                                )
+                            }
+                        }
                     loading = false
                 }
             }
@@ -143,4 +186,25 @@ fun AppRoot() {
             }
         }
     }
+}
+
+private fun FirebaseUser.toUserSession() = UserSession(
+    name = displayName?.takeIf { it.isNotBlank() } ?: email?.substringBefore("@") ?: "Usuario",
+    email = email.orEmpty()
+)
+
+private fun mensajeAuth(error: Throwable, fallback: String): String = when {
+    error is FirebaseNetworkException -> "No hay conexión a Internet"
+    error is FirebaseAuthException -> when (error.errorCode) {
+        "ERROR_INVALID_EMAIL" -> "El correo no tiene un formato válido"
+        "ERROR_EMAIL_ALREADY_IN_USE" -> "Ya existe una cuenta con ese correo"
+        "ERROR_WEAK_PASSWORD" -> "La contraseña debe tener al menos 6 caracteres"
+        "ERROR_INVALID_CREDENTIAL", "ERROR_WRONG_PASSWORD", "ERROR_USER_NOT_FOUND" ->
+            "Correo o contraseña incorrectos"
+        "ERROR_OPERATION_NOT_ALLOWED" -> "Habilita este método de acceso en Firebase"
+        "ERROR_ACCOUNT_EXISTS_WITH_DIFFERENT_CREDENTIAL" ->
+            "Ese correo ya tiene otro método de acceso. Inicia sesión con él primero"
+        else -> fallback
+    }
+    else -> fallback
 }

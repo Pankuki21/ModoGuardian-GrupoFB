@@ -57,7 +57,7 @@ fun HomeScreen(
         // Estado general
         DarkCard {
             Text("Estado general", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("INSERCODE · GUARDIÁN OS V2.4", color = TextMuted, fontSize = 11.sp)
+            Text("MODOGUARDIAN · GUARDIÁN OS V2.4", color = TextMuted, fontSize = 11.sp)
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 StatBlock("Total", cameras.size.toString(), "Cámaras", TextMain)
