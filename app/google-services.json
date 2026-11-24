@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "212540767215-bgn22quqnjda7den6ic555ablk33rph0.apps.googleusercontent.com",
+          "client_id": "212540767215-oofp4geim1rjnm1eoiqkcomtc0eerfui.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.duoc.appfacosta",
-            "certificate_hash": "2772aa48be43744d642941a4cafd0e6a9ce7e561"
+            "certificate_hash": "367a4ede699887817c3d42fb9bf89d7c918a82fd"
           }
         },
         {
