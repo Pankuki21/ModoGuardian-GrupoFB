@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -32,21 +31,43 @@ fun LoginScreen(
     loading: Boolean,
     error: String?,
     onEmailLogin: (String, String) -> Unit,
-    onRegister: (String, String, String) -> Unit,
+    onRegister: (String, String) -> Unit,
     onGoogleSignIn: () -> Unit
 ) {
     var registering by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var submitted by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var showConfirmPassword by remember { mutableStateOf(false) }
 
     val validEmail = android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
     val passwordsMatch = password == confirmPassword
-    val canSubmit = !loading && validEmail && password.length >= 6 &&
-        if (registering) name.isNotBlank() && passwordsMatch else true
+
+    val emailError = if (submitted) {
+        when {
+            email.isBlank() -> "Ingresa tu correo"
+            !validEmail -> "El correo no tiene un formato válido"
+            else -> null
+        }
+    } else null
+
+    val passwordError = if (submitted) {
+        when {
+            password.isBlank() -> "Ingresa tu contraseña"
+            password.length < 6 -> "La contraseña debe tener al menos 6 caracteres"
+            else -> null
+        }
+    } else null
+
+    val confirmPasswordError = if (registering && submitted) {
+        when {
+            confirmPassword.isBlank() -> "Confirma tu contraseña"
+            !passwordsMatch -> "Las contraseñas no coinciden"
+            else -> null
+        }
+    } else null
 
     Column(
         modifier = Modifier
@@ -65,12 +86,11 @@ fun LoginScreen(
         ) {
             Icon(Icons.Default.Security, contentDescription = null, tint = Color.White)
         }
+
         Spacer(Modifier.height(12.dp))
         Text("ModoGuardian", fontWeight = FontWeight.Black, fontSize = 22.sp, color = TextMain)
         Text("InsertCode", color = TextMuted, fontSize = 11.sp)
-
         Spacer(Modifier.height(32.dp))
-
         Text(
             if (registering) "Crear una cuenta" else "Bienvenido\nde vuelta",
             fontSize = 32.sp,
@@ -78,6 +98,7 @@ fun LoginScreen(
             color = TextMain,
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(Modifier.height(6.dp))
         Text(
             if (registering) "Completa tus datos para comenzar" else "Ingresa a tu turno de monitoreo",
@@ -86,30 +107,21 @@ fun LoginScreen(
         )
 
         Spacer(Modifier.height(28.dp))
-
-        if (registering) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("NOMBRE COMPLETO") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                colors = fieldColors(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(14.dp))
-        }
-
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("CORREO ELECTRÓNICO") },
             leadingIcon = { Icon(Icons.Default.Email, null) },
             singleLine = true,
+            isError = emailError != null,
+            supportingText = {
+                if (emailError != null) Text(emailError)
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             colors = fieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(Modifier.height(14.dp))
         OutlinedTextField(
             value = password,
@@ -124,9 +136,16 @@ fun LoginScreen(
                     )
                 }
             },
-            visualTransformation = if (showPassword) androidx.compose.ui.text.input.VisualTransformation.None
-            else PasswordVisualTransformation(),
+            visualTransformation = if (showPassword) {
+                androidx.compose.ui.text.input.VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
             singleLine = true,
+            isError = passwordError != null,
+            supportingText = {
+                if (passwordError != null) Text(passwordError)
+            },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             colors = fieldColors(),
             modifier = Modifier.fillMaxWidth()
@@ -147,45 +166,69 @@ fun LoginScreen(
                         )
                     }
                 },
-                visualTransformation = if (showConfirmPassword) androidx.compose.ui.text.input.VisualTransformation.None
-                else PasswordVisualTransformation(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                isError = confirmPassword.isNotEmpty() && !passwordsMatch,
-                supportingText = {
-                    if (confirmPassword.isNotEmpty() && !passwordsMatch) {
-                        Text("Las contraseñas no coinciden")
-                    }
+                visualTransformation = if (showConfirmPassword) {
+                    androidx.compose.ui.text.input.VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
                 },
+                singleLine = true,
+                isError = confirmPasswordError != null,
+                supportingText = {
+                    if (confirmPasswordError != null) Text(confirmPasswordError)
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 colors = fieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
         Spacer(Modifier.height(20.dp))
-
         Button(
             onClick = {
-                if (registering) onRegister(name.trim(), email.trim(), password)
-                else onEmailLogin(email.trim(), password)
+                submitted = true
+
+                val emailIsValid = email.isNotBlank() && validEmail
+                val passwordIsValid = password.length >= 6
+                val confirmationIsValid = !registering ||
+                        (confirmPassword.isNotBlank() && passwordsMatch)
+
+                if (emailIsValid && passwordIsValid && confirmationIsValid) {
+                    if (registering) {
+                        onRegister(email.trim(), password)
+                    } else {
+                        onEmailLogin(email.trim(), password)
+                    }
+                }
             },
-            enabled = canSubmit,
+            enabled = !loading,
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Accent)
         ) {
             if (loading) {
-                CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
             } else {
-                Text(if (registering) "Crear cuenta" else "Ingresar al sistema", fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (registering) "Crear cuenta" else "Ingresar al sistema",
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
 
-        TextButton(onClick = {
-            registering = !registering
-            password = ""
-            confirmPassword = ""
-        }, enabled = !loading) {
+        TextButton(
+            onClick = {
+                registering = !registering
+                email = ""
+                password = ""
+                confirmPassword = ""
+                submitted = false
+            },
+            enabled = !loading
+        ) {
             Text(if (registering) "¿Ya tienes cuenta? Inicia sesión" else "¿No tienes cuenta? Regístrate")
         }
 
@@ -198,11 +241,17 @@ fun LoginScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             HorizontalDivider(modifier = Modifier.weight(1f), color = Stroke)
-            Text(if (registering) "  O REGISTRAR CON  " else "  O CONTINUAR CON  ", color = TextMuted, fontSize = 11.sp)
+            Text(
+                if (registering) "  o registrar con  " else "  o continuar con  ",
+                color = TextMuted,
+                fontSize = 11.sp
+            )
             HorizontalDivider(modifier = Modifier.weight(1f), color = Stroke)
         }
+
         Spacer(Modifier.height(16.dp))
 
         OutlinedButton(
@@ -213,7 +262,10 @@ fun LoginScreen(
             border = androidx.compose.foundation.BorderStroke(1.dp, Stroke),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = TextMain)
         ) {
-            Text(if (registering) "Registrarse con Google" else "Continuar con Google", fontWeight = FontWeight.SemiBold)
+            Text(
+                if (registering) "Registrarse con Google" else "Continuar con Google",
+                fontWeight = FontWeight.SemiBold
+            )
         }
 
         if (error != null) {

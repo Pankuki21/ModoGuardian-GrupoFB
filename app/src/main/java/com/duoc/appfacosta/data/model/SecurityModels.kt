@@ -19,13 +19,40 @@ data class Camera(
     val recording: Boolean
 )
 
-data class UserSession(val name: String, val email: String) {
-    val initials: String get() = name.take(2).uppercase()
-
-    companion object {
-        fun fromEmail(email: String) = UserSession(
-            name = email.substringBefore("@").replaceFirstChar { it.uppercase() },
-            email = email
-        )
-    }
+enum class UserRole(val label: String) {
+    ADMIN("Admin"),
+    SUPERVISOR("Supervisor"),
+    OPERADOR("Operador"),
+    USUARIO("Usuario")
+}
+data class UserSession(
+    val name: String,
+    val email: String,
+    val role: UserRole = UserRole.USUARIO
+) {
+    val initials: String
+        get() = name.take(2).uppercase()
+}
+data class DemoUser(
+    val name: String,
+    val email: String,
+    val password: String,
+    val role: UserRole
+)
+object DemoUsers {
+    private val users = listOf(
+        DemoUser("Admin",
+            "admin@guardian.test",
+            "123456", UserRole.ADMIN),
+        DemoUser("Supervisor",
+            "supervisor@guardian.test",
+            "123456", UserRole.SUPERVISOR),
+        DemoUser("Operador",
+            "operador@guardian.test",
+            "123456", UserRole.OPERADOR)
+    )
+    fun find(email: String): DemoUser? =
+        users.firstOrNull { it.email.equals(
+            email.trim(), ignoreCase = true)
+        }
 }

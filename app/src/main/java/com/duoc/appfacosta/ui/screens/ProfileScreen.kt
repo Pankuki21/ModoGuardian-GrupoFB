@@ -49,7 +49,7 @@ fun ProfileScreen(session: UserSession, onLogout: () -> Unit) {
                 Column {
                     Text(session.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Text(session.email, color = TextMuted, fontSize = 12.sp)
-                    Text("Guardián · Zona Sur", color = Accent, fontSize = 12.sp)
+                    Text("${session.role.label} · Zona Sur", color = Accent, fontSize = 12.sp)
                 }
             }
         }
